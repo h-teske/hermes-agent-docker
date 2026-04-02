@@ -34,18 +34,22 @@ jobs:
       - name: Determine version to build
         id: version
         run: |
+          set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ inputs.version }}"
           elif [[ "${{ github.event_name }}" == "schedule" ]]; then
-            VERSION=$(curl -sf "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest" \
+            VERSION=$(curl -sf \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest" \
               | jq -r '.tag_name')
-            if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
-              echo "::error::Failed to fetch latest upstream release"
-              exit 1
-            fi
           else
             # Push event – read version from tracked file (Renovate flow)
             VERSION=$(jq -r '.version' upstream-version.json)
+          fi
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
+            echo "::error::Failed to determine version to build"
+            exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "### Building version \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
@@ -60,12 +64,22 @@ jobs:
       - name: Check if image already exists in GHCR
         id: check
         run: |
+          set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          if docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}" > /dev/null 2>&1; then
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          output=""
+          status=0
+          if ! output="$(docker manifest inspect "${IMAGE}" 2>&1)"; then
+            status=$?
+          fi
+          if [[ "$status" -eq 0 ]]; then
             echo "Image **${VERSION}** already exists – skipping build" >> "$GITHUB_STEP_SUMMARY"
             echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
+          elif echo "$output" | grep -qiE 'manifest unknown|not found|no such manifest'; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unexpected error checking manifest for ${IMAGE}: ${output}"
+            exit "$status"
           fi
 
       - name: Clone upstream source at tag
@@ -90,7 +104,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=latest
+            ${{ github.event_name != 'workflow_dispatch' && 'type=raw,value=latest' || '' }}
           labels: |
             org.opencontainers.image.title=hermes-agent
             org.opencontainers.image.description=Docker image for NousResearch/hermes-agent
