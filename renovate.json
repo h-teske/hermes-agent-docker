@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["upstream-version\\.json$"],
+      "matchStrings": ["\"version\":\\s*\"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "NousResearch/hermes-agent"
+    }
+  ]
+}
