@@ -40,6 +40,17 @@ A GitHub Actions workflow automatically builds and publishes Docker images to GH
 
 Images are tagged with the upstream version (e.g. `v2026.3.30`) and `latest` points to the most recent scheduled/Renovate build.
 
+## Modifications to upstream
+
+This repository applies the following patches to the upstream Dockerfile at build time:
+
+| Patch | Reason |
+|-------|--------|
+| `apt-get install libolm-dev` | System dependency required for Matrix E2E encryption |
+| `pip install 'matrix-nio[e2e]'` | Adds Matrix protocol support with End-to-End Encryption via [matrix-nio](https://github.com/poljar/matrix-nio) |
+
+The patches are injected by the CI workflow after cloning the upstream source, before the Docker image is built.
+
 ## Configuration
 
 Hermes Agent is configured via environment variables. See the upstream [`.env.example`](https://github.com/NousResearch/hermes-agent/blob/main/.env.example) for available options.
