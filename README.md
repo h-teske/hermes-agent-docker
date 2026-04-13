@@ -47,8 +47,8 @@ This repository applies the following patches to the upstream Dockerfile at buil
 | Patch | Reason |
 |-------|--------|
 | `apt-get install git` | Required before `npm install` — upstream image omits `git`, causing npm to fail on git-protocol dependencies |
-| `apt-get install libolm-dev python3 python3-pip` | System dependencies for Matrix E2E encryption (upstream image has no Python) |
-| `python3 -m pip install 'matrix-nio[e2e]'` | Adds Matrix protocol support with End-to-End Encryption via [matrix-nio](https://github.com/poljar/matrix-nio) |
+| `apt-get install python3 python3-pip` | Python runtime required for Matrix support (upstream image has no Python) |
+| `python3 -m pip install mautrix` | Adds Matrix protocol support via [mautrix-python](https://github.com/mautrix/python) |
 
 The patches are injected by the CI workflow after cloning the upstream source, before the Docker image is built.
 
