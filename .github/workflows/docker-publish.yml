@@ -118,7 +118,7 @@ jobs:
           matrix_patch = (
               "\nRUN apt-get update && apt-get install -y libolm-dev"
               " && rm -rf /var/lib/apt/lists/*\n"
-              "RUN pip install 'matrix-nio[e2e]'\n"
+              "RUN pip3 install 'matrix-nio[e2e]'\n"
           )
           matches = list(re.finditer(r'\n(?:CMD|ENTRYPOINT)\b', content))
           if matches:
