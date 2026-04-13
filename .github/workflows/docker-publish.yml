@@ -111,12 +111,13 @@ jobs:
           )
 
           # Insert patch before the last CMD or ENTRYPOINT instruction
-          new_content, n = re.subn(
-              r'(\n(?:CMD|ENTRYPOINT)\b)',
-              patch + r'\1',
-              content,
-              count=1,
-          )
+          matches = list(re.finditer(r'\n(?:CMD|ENTRYPOINT)\b', content))
+          if matches:
+              last = matches[-1]
+              new_content = content[:last.start()] + patch + content[last.start():]
+              n = 1
+          else:
+              new_content, n = content, 0
           if n == 0:
               print("WARNING: no CMD/ENTRYPOINT found – appending patch at end of Dockerfile", file=sys.stderr)
               new_content = content + patch
