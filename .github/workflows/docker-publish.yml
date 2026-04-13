@@ -94,6 +94,40 @@ jobs:
           git clone --depth 1 --branch "${{ steps.version.outputs.version }}" \
             "https://github.com/${{ env.UPSTREAM_REPO }}.git" upstream
 
+      - name: Patch upstream Dockerfile (add matrix-nio e2e dependencies)
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF'
+          import re, sys
+
+          with open('upstream/Dockerfile', 'r') as f:
+              content = f.read()
+
+          patch = (
+              "\nRUN apt-get update && apt-get install -y libolm-dev"
+              " && rm -rf /var/lib/apt/lists/*\n"
+              "RUN pip install 'matrix-nio[e2e]'\n"
+          )
+
+          # Insert patch before the last CMD or ENTRYPOINT instruction
+          matches = list(re.finditer(r'\n(?:CMD|ENTRYPOINT)\b', content))
+          if matches:
+              last = matches[-1]
+              new_content = content[:last.start()] + patch + content[last.start():]
+              n = 1
+          else:
+              new_content, n = content, 0
+          if n == 0:
+              print("WARNING: no CMD/ENTRYPOINT found – appending patch at end of Dockerfile", file=sys.stderr)
+              new_content = content + patch
+
+          with open('upstream/Dockerfile', 'w') as f:
+              f.write(new_content)
+
+          print("Dockerfile patched successfully")
+          PYEOF
+
       - name: Set up Docker Buildx
         if: steps.check.outputs.exists != 'true'
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
