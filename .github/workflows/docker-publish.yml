@@ -104,26 +104,33 @@ jobs:
           with open('upstream/Dockerfile', 'r') as f:
               content = f.read()
 
-          patch = (
+          # Patch 1: inject `git` before the first `npm install` so npm can
+          # resolve git-protocol dependencies (upstream image omits git).
+          npm_match = re.search(r'\nRUN npm install\b', content)
+          if npm_match:
+              git_patch = "\nRUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*\n"
+              content = content[:npm_match.start()] + git_patch + content[npm_match.start():]
+              print("Patch 1 applied: git installed before npm install")
+          else:
+              print("WARNING: no 'npm install' found – skipping git patch", file=sys.stderr)
+
+          # Patch 2: add libolm-dev + matrix-nio[e2e] before the last CMD/ENTRYPOINT
+          matrix_patch = (
               "\nRUN apt-get update && apt-get install -y libolm-dev"
               " && rm -rf /var/lib/apt/lists/*\n"
               "RUN pip install 'matrix-nio[e2e]'\n"
           )
-
-          # Insert patch before the last CMD or ENTRYPOINT instruction
           matches = list(re.finditer(r'\n(?:CMD|ENTRYPOINT)\b', content))
           if matches:
               last = matches[-1]
-              new_content = content[:last.start()] + patch + content[last.start():]
-              n = 1
+              content = content[:last.start()] + matrix_patch + content[last.start():]
+              print("Patch 2 applied: libolm-dev + matrix-nio[e2e] added")
           else:
-              new_content, n = content, 0
-          if n == 0:
-              print("WARNING: no CMD/ENTRYPOINT found – appending patch at end of Dockerfile", file=sys.stderr)
-              new_content = content + patch
+              print("WARNING: no CMD/ENTRYPOINT found – appending matrix patch at end", file=sys.stderr)
+              content += matrix_patch
 
           with open('upstream/Dockerfile', 'w') as f:
-              f.write(new_content)
+              f.write(content)
 
           print("Dockerfile patched successfully")
           PYEOF
