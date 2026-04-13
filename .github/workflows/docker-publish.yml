@@ -116,9 +116,9 @@ jobs:
 
           # Patch 2: add libolm-dev + matrix-nio[e2e] before the last CMD/ENTRYPOINT
           matrix_patch = (
-              "\nRUN apt-get update && apt-get install -y libolm-dev python3 python3-pip"
+              "\nRUN apt-get update && apt-get install -y python3 python3-pip"
               " && rm -rf /var/lib/apt/lists/*\n"
-              "RUN python3 -m pip install --break-system-packages 'matrix-nio[e2e]'\n"
+              "RUN python3 -m pip install --break-system-packages mautrix\n"
           )
           matches = list(re.finditer(r'\n(?:CMD|ENTRYPOINT)\b', content))
           if matches:
