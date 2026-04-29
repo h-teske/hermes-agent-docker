@@ -124,19 +124,20 @@ jobs:
           prior = content[:insert_at]
           user_matches = list(re.finditer(r'(?m)^USER\s+(\S+)', prior))
           prior_user = user_matches[-1].group(1) if user_matches else None
-          matrix_patch = (
+          mautrix_patch = (
               "\nUSER root\n"
               "RUN apt-get update && apt-get install -y python3 python3-pip"
               " && rm -rf /var/lib/apt/lists/*\n"
               "RUN python3 -m pip install --break-system-packages mautrix\n"
           )
           if prior_user is not None:
-              matrix_patch += f"USER {prior_user}\n"
-          content = prior + matrix_patch + content[insert_at:]
+              mautrix_patch += f"USER {prior_user}\n"
+          content = prior + mautrix_patch + content[insert_at:]
+          user_note = f"restored USER={prior_user}" if prior_user is not None else "no prior USER directive"
           if matches:
-              print(f"Patch 2 applied: mautrix added (restored USER={prior_user})")
+              print(f"Patch 2 applied: mautrix added ({user_note})")
           else:
-              print(f"WARNING: no CMD/ENTRYPOINT found – appended matrix patch at end (restored USER={prior_user})", file=sys.stderr)
+              print(f"WARNING: no CMD/ENTRYPOINT found – appended mautrix patch at end ({user_note})", file=sys.stderr)
 
           with open('upstream/Dockerfile', 'w') as f:
               f.write(content)
