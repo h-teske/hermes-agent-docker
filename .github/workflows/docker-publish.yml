@@ -120,29 +120,23 @@ jobs:
           # and then restore the original USER (if any) so the runtime user
           # is unchanged.
           matches = list(re.finditer(r'\n(?:CMD|ENTRYPOINT)\b', content))
+          insert_at = matches[-1].start() if matches else len(content)
+          prior = content[:insert_at]
+          user_matches = list(re.finditer(r'(?m)^USER\s+(\S+)', prior))
+          prior_user = user_matches[-1].group(1) if user_matches else None
+          matrix_patch = (
+              "\nUSER root\n"
+              "RUN apt-get update && apt-get install -y python3 python3-pip"
+              " && rm -rf /var/lib/apt/lists/*\n"
+              "RUN python3 -m pip install --break-system-packages mautrix\n"
+          )
+          if prior_user is not None:
+              matrix_patch += f"USER {prior_user}\n"
+          content = prior + matrix_patch + content[insert_at:]
           if matches:
-              last = matches[-1]
-              prior = content[:last.start()]
-              user_matches = list(re.finditer(r'(?m)^USER\s+(\S+)', prior))
-              prior_user = user_matches[-1].group(1) if user_matches else None
-              matrix_patch = (
-                  "\nUSER root\n"
-                  "RUN apt-get update && apt-get install -y python3 python3-pip"
-                  " && rm -rf /var/lib/apt/lists/*\n"
-                  "RUN python3 -m pip install --break-system-packages mautrix\n"
-              )
-              if prior_user is not None:
-                  matrix_patch += f"USER {prior_user}\n"
-              content = prior + matrix_patch + content[last.start():]
               print(f"Patch 2 applied: mautrix added (restored USER={prior_user})")
           else:
-              print("WARNING: no CMD/ENTRYPOINT found – appending matrix patch at end", file=sys.stderr)
-              content += (
-                  "\nUSER root\n"
-                  "RUN apt-get update && apt-get install -y python3 python3-pip"
-                  " && rm -rf /var/lib/apt/lists/*\n"
-                  "RUN python3 -m pip install --break-system-packages mautrix\n"
-              )
+              print(f"WARNING: no CMD/ENTRYPOINT found – appended matrix patch at end (restored USER={prior_user})", file=sys.stderr)
 
           with open('upstream/Dockerfile', 'w') as f:
               f.write(content)
